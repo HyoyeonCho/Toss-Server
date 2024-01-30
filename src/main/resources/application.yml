@@ -2,5 +2,3 @@ toss:
   payment:
     client_key: test_ck_5OWRapdA8dmNqJJp1k593o1zEqZK
     secret_key: test_sk_DnyRpQWGrN6zGn6jzj4grKwv1M9E
-    success_url: "http://localhost:8080/api/v1/payments/toss/success"
-    fail_url: "http://localhost:8080/api/v1/payments/toss/fail"
