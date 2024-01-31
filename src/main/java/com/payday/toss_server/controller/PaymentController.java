@@ -1,10 +1,13 @@
-package com.payday.toss_server;
+package com.payday.toss_server.controller;
 
+import com.payday.toss_server.service.PaymentService;
 import com.payday.toss_server.config.PaymentConfig;
+import com.payday.toss_server.dto.ConfirmDTO;
+import com.payday.toss_server.dto.PaymentDTO;
+import com.payday.toss_server.dto.RequestDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.http.ResponseEntity;
@@ -23,33 +26,30 @@ import java.util.Base64;
 public class PaymentController {
 
     private final PaymentConfig paymentConfig;
+    private final PaymentService paymentService;
 
     @Autowired
-    public PaymentController(PaymentConfig paymentConfig) {
+    public PaymentController(PaymentConfig paymentConfig, PaymentService paymentService) {
         this.paymentConfig = paymentConfig;
+        this.paymentService = paymentService;
+    }
+
+    @PostMapping(value = "/request")
+    public ResponseEntity<?> requestPayment(@RequestBody RequestDTO requestDTO) {
+        /* 결제 성공/실패 여부 상관없이 사용자가 결제 요청 시, 로그 등록 */
+        paymentService.insertRequest(requestDTO);
+
+        return ResponseEntity.ok().body("결제 요청 로그 등록 완료");
     }
 
     @PostMapping(value = "/confirm")
-    public ResponseEntity<JSONObject> confirmPayment(@RequestBody String jsonBody) throws Exception {
+    public ResponseEntity<JSONObject> confirmPayment(@RequestBody ConfirmDTO confirmDTO) throws Exception {
 
-        JSONParser parser = new JSONParser();
-        String orderId;
-        String amount;
-        String paymentKey;
-        try {
-            // Client에서 받은 String(JSON 형태)을 JSON 객체로 파싱
-            JSONObject requestData = (JSONObject) parser.parse(jsonBody);
-            paymentKey = (String) requestData.get("paymentKey");
-            orderId = (String) requestData.get("orderId");
-            amount = (String) requestData.get("amount");
-        } catch (ParseException e) {
-            throw new RuntimeException(e);
-        }
-        // 새 JSON 객체를 생성하여 필요한 데이터를 추가
+        // JSON 객체에 필요한 데이터 추가
         JSONObject obj = new JSONObject();
-        obj.put("orderId", orderId);
-        obj.put("amount", amount);
-        obj.put("paymentKey", paymentKey);
+        obj.put("orderId", confirmDTO.getOrderId());
+        obj.put("amount", confirmDTO.getAmount());
+        obj.put("paymentKey", confirmDTO.getPaymentKey());
 
         // 토스페이먼츠 API는 시크릿 키를 사용자 ID로 사용, 비밀번호는 사용X
         // 비밀번호가 없다는 것을 알리기 위해 시크릿 키 뒤에 콜론 추가
@@ -75,8 +75,7 @@ public class PaymentController {
         // 응답이 200일 경우, 입력 스트림을 열어 서버로부터의 데이터를 받음 (아닐 경우, 에러 스트림)
         InputStream responseStream = isSuccess ? connection.getInputStream() : connection.getErrorStream();
 
-        // TODO: 결제 성공 및 실패 비즈니스 로직을 구현
-        // 결제 성공 시, paymentKey 및 orderId는 서버에 필수로 저장 (결제 조회, 결제 취소에 사용되는 값)
+        JSONParser parser = new JSONParser();
         Reader reader = new InputStreamReader(responseStream, StandardCharsets.UTF_8); // 응답 스트림을 문자열로 읽기 위한 Reader 생성
         JSONObject jsonObject = (JSONObject) parser.parse(reader); // 응답 데이터를 JSON 객체로 파싱
         responseStream.close();
@@ -84,6 +83,12 @@ public class PaymentController {
         return ResponseEntity.status(code).body(jsonObject);
     }
 
+    @PostMapping(value = "/result")
+    public ResponseEntity<?> insertPayment(@RequestBody PaymentDTO paymentDTO) {
+        /* confirm 이후, 결제 결과 로그 등록 */
+        paymentService.insertPayment(paymentDTO);
 
+        return ResponseEntity.ok().body("결제 결과 로그 등록 완료");
+    }
 
 }

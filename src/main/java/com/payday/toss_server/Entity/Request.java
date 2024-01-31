@@ -14,15 +14,12 @@ import java.sql.Date;
 @Setter
 @Entity
 @DynamicInsert
-@Table(name="TBL_PAYMENT")
-public class Payment {
+@Table(name="TBL_REQUEST")
+public class Request {
 
     @Id
     @Column(name="ORDER_ID")
     private String orderId;
-
-    @Column(name="PAYMENT_KEY")
-    private String paymentKey;
 
     @Column(name="CUSTOMER_KEY")
     private String customerKey;
@@ -33,10 +30,6 @@ public class Payment {
     @Column(name="AMOUNT")
     private long amount;
 
-    @Column(name="PAY_TIME")
-    private Date payTime;
-
-    @Column(name="PAY_YN")
-    private char payYN;
-
+    @Column(name="REQ_TIME")
+    private Date reqTime;
 }

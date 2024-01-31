@@ -2,3 +2,16 @@ toss:
   payment:
     client_key: test_ck_5OWRapdA8dmNqJJp1k593o1zEqZK
     secret_key: test_sk_DnyRpQWGrN6zGn6jzj4grKwv1M9E
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/toss_database
+    username: root
+    password: pass12#$
+  jpa:
+    database: MYSQL
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
