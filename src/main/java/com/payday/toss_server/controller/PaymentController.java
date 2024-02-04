@@ -3,7 +3,6 @@ package com.payday.toss_server.controller;
 import com.payday.toss_server.dto.UserDTO;
 import com.payday.toss_server.service.PaymentService;
 import com.payday.toss_server.config.PaymentConfig;
-import com.payday.toss_server.dto.ConfirmDTO;
 import com.payday.toss_server.dto.PaymentDTO;
 import com.payday.toss_server.dto.RequestDTO;
 import lombok.extern.slf4j.Slf4j;
@@ -46,20 +45,20 @@ public class PaymentController {
 
     @PostMapping(value = "/request")
     public ResponseEntity<String> insertRequest(@RequestBody RequestDTO requestDTO) {
-        // 결제 성공/실패 여부 상관없이 사용자가 결제를 요청할 시, 해당 정보를 DB에 저장합니다. (필수 X)
+        // 결제 성공/실패 여부 상관없이 사용자가 결제를 요청할 시, 해당 정보를 DB에 저장합니다. (선택 사항)
         paymentService.insertRequest(requestDTO);
 
         return ResponseEntity.ok().body("결제 요청 정보 저장 완료");
     }
 
     @PostMapping(value = "/confirm")
-    public ResponseEntity<JSONObject> confirmPayment(@RequestBody ConfirmDTO confirmDTO) throws Exception {
+    public ResponseEntity<JSONObject> confirmPayment(@RequestBody PaymentDTO paymentDTO) throws Exception {
 
         // 토스 API에 보낼 JSON 객체를 생성합니다.
         JSONObject obj = new JSONObject();
-        obj.put("orderId", confirmDTO.getOrderId());
-        obj.put("amount", confirmDTO.getAmount());
-        obj.put("paymentKey", confirmDTO.getPaymentKey());
+        obj.put("orderId", paymentDTO.getOrderId());
+        obj.put("amount", paymentDTO.getAmount());
+        obj.put("paymentKey", paymentDTO.getPaymentKey());
 
         // 토스 API는 시크릿 키를 사용자 ID로 사용하며 비밀번호는 사용하지 않습니다.
         // 비밀번호가 없다는 것을 알리기 위해 시크릿 키 뒤에 콜론을 추가한 후, 인코딩하는 과정이 필요합니다.
@@ -79,7 +78,7 @@ public class PaymentController {
 
         int code = connection.getResponseCode();
         boolean isSuccess = code == 200;
-        // 응답이 200일 경우, 입력 스트림을 열어 서버로부터의 데이터를 받습니다.
+        // 응답이 200일 경우, 입력 스트림을 열어 토스로부터 데이터를 받습니다.
         InputStream responseStream = isSuccess ? connection.getInputStream() : connection.getErrorStream();
 
         JSONParser parser = new JSONParser();
@@ -87,16 +86,15 @@ public class PaymentController {
         JSONObject jsonObject = (JSONObject) parser.parse(reader); // 응답 데이터를 JSON 객체로 파싱
         responseStream.close();
 
+        String errorCode = (String) jsonObject.get("code");
+        if(errorCode == null || !errorCode.equals("ALREADY_PROCESSED_PAYMENT")) {
+            // 응답에 따라 DB에 최종 결제 결과를 등록합니다. (이미 처리된 결제일 경우는 등록하지않습니다.)
+            char payYN = isSuccess ? 'Y' : 'N';
+            paymentDTO.setPayYN(payYN);
+            paymentService.insertPayment(paymentDTO);
+        }
+
         return ResponseEntity.status(code).body(jsonObject);
-    }
-
-    @PostMapping(value = "/payment")
-    public ResponseEntity<String> insertPayment(@RequestBody PaymentDTO paymentDTO) {
-
-        // 최종 결제 결과를 DB에 저장합니다.
-        paymentService.insertPayment(paymentDTO);
-
-        return ResponseEntity.ok().body("최종 결제 결과 저장 완료");
     }
 
 }
